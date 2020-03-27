@@ -1,0 +1,54 @@
+---
+title: "monocyte_wt_lynko.Rmd"
+author: "maunish_barvalia"
+date: "3/26/2020"
+output: html_document
+---
+
+```{r All the magic}
+library(Seurat)
+monocyte_upload <- read.csv("wt_and_lynko_monocytes_raw_counts.csv.gz", row.names = 1)
+monocyte_subset <- read.csv("monocyte_subset_identities.csv", row.names = 1)
+rownames(monocyte_upload) 
+colnames(monocyte_upload)
+
+monocyte_upload_seurat <- CreateSeuratObject(counts = monocyte_upload)
+
+monocyte_upload_seurat@assays$RNA@data
+
+monocyte_upload_seurat <- NormalizeData(monocyte_upload_seurat, normalization.method = "LogNormalize", scale.factor = 10000)
+monocyte_upload_seurat <- FindVariableFeatures(monocyte_upload_seurat, selection.method = "vst", nfeatures = 2000)
+
+# top10 <- head(VariableFeatures(monocyte_upload_seurat), 10)
+# plot1 <- VariableFeaturePlot(monocyte_upload_seurat)
+# plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+# CombinePlots(plots = list(plot1, plot2))
+
+all.genes <- rownames(monocyte_upload_seurat)
+monocyte_upload_seurat <- ScaleData(monocyte_upload_seurat, features = all.genes)
+
+
+monocyte_upload_seurat <- RunPCA(monocyte_upload_seurat, features = VariableFeatures(object = monocyte_upload_seurat))
+# print(monocyte_upload_seurat[["pca"]], dims = 1:5, nfeatures = 5)
+# VizDimLoadings(monocyte_upload_seurat, dims = 1:2, reduction = "pca")
+# DimPlot(monocyte_upload_seurat, reduction = "pca")
+# DimHeatmap(monocyte_upload_seurat, dims = 1, cells = 500, balanced = TRUE)
+# DimHeatmap(monocyte_upload_seurat, dims = 1:15, cells = 500, balanced = TRUE)
+
+ElbowPlot(monocyte_upload_seurat)
+
+monocyte_upload_seurat <- FindNeighbors(monocyte_upload_seurat, dims = 1:13)
+monocyte_upload_seurat <- FindClusters(monocyte_upload_seurat, resolution = 0.5)
+
+head(Idents(monocyte_upload_seurat), 5)
+
+monocyte_upload_seurat <- RunTSNE(monocyte_upload_seurat, dims = 1:13, seed.use = 2019)
+
+monocyte_upload_seurat@meta.data$monocyte_cluster <- monocyte_subset$cell_identity
+Idents(monocyte_upload_seurat) <- "monocyte_cluster"
+
+g <- DimPlot(monocyte_upload_seurat, reduction = "tsne", group.by = "monocyte_cluster", order = rev(populations), split.by = "orig.ident")
+save_plot("overlaid_monocyte_upload_seurat_plot_scRNA-seq.pdf", g)
+g <- FeaturePlot(monocyte_upload_seurat, reduction = "tsne", features = c("Lyn"), cols = c("grey", "blue"), split.by = "orig.ident")
+save_plot("expression_monocyte_upload_seurat_plot_scRNA-seq.pdf", g)
+```
